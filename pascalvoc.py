@@ -50,12 +50,13 @@ import glob
 import os
 import shutil
 import sys
+import pandas as pd
 
 import _init_paths
-from BoundingBox import BoundingBox
-from BoundingBoxes import BoundingBoxes
-from Evaluator import *
-from utils import BBFormat
+from lib.BoundingBox import BoundingBox
+from lib.BoundingBoxes import BoundingBoxes
+from lib.Evaluator import *
+from lib.utils import BBFormat
 
 
 # Validate formats
@@ -374,7 +375,8 @@ validClasses = 0
 
 # Plot Precision x Recall curve
 detections = evaluator.PlotPrecisionRecallCurve(
-    allBoundingBoxes,  # Object containing all bounding boxes (ground truths and detections)
+    # Object containing all bounding boxes (ground truths and detections)
+    allBoundingBoxes,
     IOUThreshold=iouThreshold,  # IOU threshold
     method=MethodAveragePrecision.EveryPointInterpolation,
     showAP=True,  # Show Average Precision in the title of the plot
@@ -384,12 +386,16 @@ detections = evaluator.PlotPrecisionRecallCurve(
 
 f = open(os.path.join(savePath, 'results.txt'), 'w')
 f.write('Object Detection Metrics\n')
-f.write('https://github.com/rafaelpadilla/Object-Detection-Metrics\n\n\n')
+# f.write('https://github.com/rafaelpadilla/Object-Detection-Metrics\n\n\n')
 f.write('Average Precision (AP), Precision and Recall per class:')
 
+sum_of_classes = 0
 # each detection is a class
-for metricsPerClass in detections:
+columns = ['Class', 'GT', 'TP', 'FP', 'FN',
+           'Recall', 'Precision', 'AP', 'iou', 'mAP']
+data = []
 
+for metricsPerClass in detections:
     # Get metric values per each class
     cl = metricsPerClass['class']
     ap = metricsPerClass['AP']
@@ -398,21 +404,46 @@ for metricsPerClass in detections:
     totalPositives = metricsPerClass['total positives']
     total_TP = metricsPerClass['total TP']
     total_FP = metricsPerClass['total FP']
-
+    sum_of_classes += totalPositives
     if totalPositives > 0:
         validClasses = validClasses + 1
         acc_AP = acc_AP + ap
         prec = ['%.2f' % p for p in precision]
         rec = ['%.2f' % r for r in recall]
+        rec_percent = total_TP / totalPositives
+        prec_percent = (total_TP + total_FP) and total_TP / \
+            (total_TP + total_FP) or 0
         ap_str = "{0:.2f}%".format(ap * 100)
-        # ap_str = "{0:.4f}%".format(ap * 100)
-        print('AP: %s (%s)' % (ap_str, cl))
+        ap_str = "{0:.4f}%".format(ap * 100)
+        print(f'Class: {cl}')
+        print(f'Ground truth: {totalPositives}')
+        print(f'TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, '
+              f'Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
         f.write('\n\nClass: %s' % cl)
-        f.write('\nAP: %s' % ap_str)
+        f.write(f'\nGround truth: {totalPositives}, TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
         f.write('\nPrecision: %s' % prec)
         f.write('\nRecall: %s' % rec)
+        elements = [cl, totalPositives,
+                    int(total_TP),
+                    int(total_FP),
+                    int(totalPositives - total_TP),
+                    rec_percent,
+                    prec_percent,
+                    ap
+                    ]
+
+    data.append(elements)
 
 mAP = acc_AP / validClasses
 mAP_str = "{0:.2f}%".format(mAP * 100)
-print('mAP: %s' % mAP_str)
-f.write('\n\n\nmAP: %s' % mAP_str)
+# print(f'Total number of classes: {sum_of_classes}')
+# print(f'Iou: {iouThreshold}, mAP: {mAP_str}')
+# f.write(f'\n\n\nIou: {iouThreshold}, mAP: {mAP_str}')
+
+for i in range(len(data)):
+    data[i].extend([iouThreshold, mAP])
+
+df = pd.DataFrame([sublist[:10] for sublist in data], columns=columns)
+df = df.drop_duplicates(subset="Class")
+df.to_csv(f'{savePath}/results.csv', encoding='utf-8', index=False)
+print(df)
