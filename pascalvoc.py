@@ -51,6 +51,7 @@ import os
 import shutil
 import sys
 import pandas as pd
+import json
 
 import _init_paths
 from lib.BoundingBox import BoundingBox
@@ -385,6 +386,8 @@ detections = evaluator.PlotPrecisionRecallCurve(
     showGraphic=showPlot)
 
 f = open(os.path.join(savePath, 'results.txt'), 'w')
+prec_recall_json = os.path.join(savePath, "precision_recall.json")
+
 f.write('Object Detection Metrics\n')
 # f.write('https://github.com/rafaelpadilla/Object-Detection-Metrics\n\n\n')
 f.write('Average Precision (AP), Precision and Recall per class:')
@@ -394,6 +397,7 @@ sum_of_classes = 0
 columns = ['Class', 'GT', 'TP', 'FP', 'FN',
            'Recall', 'Precision', 'AP', 'iou', 'mAP']
 data = []
+prc = []
 
 for metricsPerClass in detections:
     # Get metric values per each class
@@ -423,6 +427,10 @@ for metricsPerClass in detections:
         f.write(f'\nGround truth: {totalPositives}, TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
         f.write('\nPrecision: %s' % prec)
         f.write('\nRecall: %s' % rec)
+        
+        print(prec_recall_json)
+        prc.append({cl: [{"precision": prec, "recall": rec}]})
+
         elements = [cl, totalPositives,
                     int(total_TP),
                     int(total_FP),
@@ -434,6 +442,9 @@ for metricsPerClass in detections:
 
     data.append(elements)
 
+with open(prec_recall_json, "a") as f:
+    json.dump(prc, f, indent=4)
+    
 mAP = acc_AP / validClasses
 mAP_str = "{0:.2f}%".format(mAP * 100)
 # print(f'Total number of classes: {sum_of_classes}')
