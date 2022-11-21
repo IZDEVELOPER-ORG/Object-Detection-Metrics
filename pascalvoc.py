@@ -385,66 +385,66 @@ detections = evaluator.PlotPrecisionRecallCurve(
     savePath=savePath,
     showGraphic=showPlot)
 
-f = open(os.path.join(savePath, 'results.txt'), 'w')
-prec_recall_json = os.path.join(savePath, "precision_recall.json")
+#f = open(os.path.join(savePath, 'results.txt'), 'w')
+with open((os.path.join(savePath, 'results.txt')), 'w') as f:
+    f.write('Object Detection Metrics\n')
+    # f.write('https://github.com/rafaelpadilla/Object-Detection-Metrics\n\n\n')
+    f.write('Average Precision (AP), Precision and Recall per class:')
 
-f.write('Object Detection Metrics\n')
-# f.write('https://github.com/rafaelpadilla/Object-Detection-Metrics\n\n\n')
-f.write('Average Precision (AP), Precision and Recall per class:')
+    sum_of_classes = 0
+    # each detection is a class
+    columns = ['Class', 'GT', 'TP', 'FP', 'FN',
+            'Recall', 'Precision', 'AP', 'iou', 'mAP']
+    data = []
+    prc = []
 
-sum_of_classes = 0
-# each detection is a class
-columns = ['Class', 'GT', 'TP', 'FP', 'FN',
-           'Recall', 'Precision', 'AP', 'iou', 'mAP']
-data = []
-prc = []
+    for metricsPerClass in detections:
+        # Get metric values per each class
+        cl = metricsPerClass['class']
+        ap = metricsPerClass['AP']
+        precision = metricsPerClass['precision']
+        recall = metricsPerClass['recall']
+        totalPositives = metricsPerClass['total positives']
+        total_TP = metricsPerClass['total TP']
+        total_FP = metricsPerClass['total FP']
+        sum_of_classes += totalPositives
+        prec_recall_json = os.path.join(savePath, f"{cl}.json")
 
-for metricsPerClass in detections:
-    # Get metric values per each class
-    cl = metricsPerClass['class']
-    ap = metricsPerClass['AP']
-    precision = metricsPerClass['precision']
-    recall = metricsPerClass['recall']
-    totalPositives = metricsPerClass['total positives']
-    total_TP = metricsPerClass['total TP']
-    total_FP = metricsPerClass['total FP']
-    sum_of_classes += totalPositives
-    if totalPositives > 0:
-        validClasses = validClasses + 1
-        acc_AP = acc_AP + ap
-        prec = ['%.2f' % p for p in precision]
-        rec = ['%.2f' % r for r in recall]
-        rec_percent = total_TP / totalPositives
-        prec_percent = (total_TP + total_FP) and total_TP / \
-            (total_TP + total_FP) or 0
-        ap_str = "{0:.2f}%".format(ap * 100)
-        ap_str = "{0:.4f}%".format(ap * 100)
-        print(f'Class: {cl}')
-        print(f'Ground truth: {totalPositives}')
-        print(f'TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, '
-              f'Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
-        f.write('\n\nClass: %s' % cl)
-        f.write(f'\nGround truth: {totalPositives}, TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
-        f.write('\nPrecision: %s' % prec)
-        f.write('\nRecall: %s' % rec)
-        
-        print(prec_recall_json)
-        prc.append({cl: [{"precision": prec, "recall": rec}]})
+        if totalPositives > 0:
+            validClasses = validClasses + 1
+            acc_AP = acc_AP + ap
+            prec = ['%.2f' % p for p in precision]
+            rec = ['%.2f' % r for r in recall]
+            rec_percent = total_TP / totalPositives
+            prec_percent = (total_TP + total_FP) and total_TP / \
+                (total_TP + total_FP) or 0
+            ap_str = "{0:.2f}%".format(ap * 100)
+            ap_str = "{0:.4f}%".format(ap * 100)
+            print(f'Class: {cl}')
+            print(f'Ground truth: {totalPositives}')
+            print(f'TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, '
+                f'Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
 
-        elements = [cl, totalPositives,
-                    int(total_TP),
-                    int(total_FP),
-                    int(totalPositives - total_TP),
-                    rec_percent,
-                    prec_percent,
-                    ap
-                    ]
+            with open(prec_recall_json, "w") as j:
+                json.dump({cl: [{"precision": p, "recall": r} for p, r in zip(prec, rec)]}, j, indent=4)
 
-    data.append(elements)
+            f.write('\n\nClass: %s' % cl)
+            f.write(f'\nGround truth: {totalPositives}, TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
+            f.write('\nPrecision: %s' % prec)
+            f.write('\nRecall: %s' % rec)
+            
+            elements = [cl, totalPositives,
+                        int(total_TP),
+                        int(total_FP),
+                        int(totalPositives - total_TP),
+                        rec_percent,
+                        prec_percent,
+                        ap
+                        ]
 
-with open(prec_recall_json, "a") as f:
-    json.dump(prc, f, indent=4)
-    
+        data.append(elements)
+
+
 mAP = acc_AP / validClasses
 mAP_str = "{0:.2f}%".format(mAP * 100)
 # print(f'Total number of classes: {sum_of_classes}')
