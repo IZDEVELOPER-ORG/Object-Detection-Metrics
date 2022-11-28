@@ -396,7 +396,6 @@ with open((os.path.join(savePath, 'results.txt')), 'w') as f:
     columns = ['Class', 'GT', 'TP', 'FP', 'FN',
             'Recall', 'Precision', 'AP', 'iou', 'mAP']
     data = []
-    prc = []
 
     for metricsPerClass in detections:
         # Get metric values per each class
@@ -459,6 +458,3 @@ df = pd.DataFrame([sublist[:10] for sublist in data], columns=columns)
 df = df.drop_duplicates(subset="Class")
 df.to_csv(f'{savePath}/results.csv', encoding='utf-8', index=False)
 print(df)
-
-with open(prec_recall_json, "a") as f:
-    json.dump(prc, f, indent=4)
