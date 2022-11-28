@@ -432,7 +432,8 @@ with open((os.path.join(savePath, 'results.txt')), 'w') as f:
             f.write(f'\nGround truth: {totalPositives}, TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
             f.write('\nPrecision: %s' % prec)
             f.write('\nRecall: %s' % rec)
-            
+            prc.append({cl: [{"precision": prec, "recall": rec}]})
+
             elements = [cl, totalPositives,
                         int(total_TP),
                         int(total_FP),
@@ -458,3 +459,6 @@ df = pd.DataFrame([sublist[:10] for sublist in data], columns=columns)
 df = df.drop_duplicates(subset="Class")
 df.to_csv(f'{savePath}/results.csv', encoding='utf-8', index=False)
 print(df)
+
+with open(prec_recall_json, "a") as f:
+    json.dump(prc, f, indent=4)
