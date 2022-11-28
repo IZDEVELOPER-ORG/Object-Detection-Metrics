@@ -52,7 +52,7 @@ import shutil
 import sys
 import pandas as pd
 import json
-
+from tqdm import tqdm
 import _init_paths
 from lib.BoundingBox import BoundingBox
 from lib.BoundingBoxes import BoundingBoxes
@@ -207,7 +207,7 @@ VERSION = '0.2 (beta)'
 with open('message.txt', 'r') as f:
     message = f'\n\n{f.read()}\n\n'
 
-print(message)
+# print(message)
 
 parser = argparse.ArgumentParser(
     prog='Object Detection Metrics - Pascal VOC',
@@ -397,7 +397,7 @@ with open((os.path.join(savePath, 'results.txt')), 'w') as f:
             'Recall', 'Precision', 'AP', 'iou', 'mAP']
     data = []
 
-    for metricsPerClass in detections:
+    for metricsPerClass in tqdm(detections):
         # Get metric values per each class
         cl = metricsPerClass['class']
         ap = metricsPerClass['AP']
@@ -425,7 +425,10 @@ with open((os.path.join(savePath, 'results.txt')), 'w') as f:
                 f'Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
 
             with open(prec_recall_json, "w") as j:
-                json.dump({cl: [{"precision": p, "recall": r} for p, r in zip(prec, rec)]}, j, indent=4)
+                if len(prec) != 0 or len(rec) != 0:
+                    json.dump({cl: [{"precision": p, "recall": r} for p, r in zip(prec, rec)]}, j, indent=4)
+                else:
+                    json.dump({cl: [{"precision": "0.00", "recall": "0.00"}]}, j, indent=4)
 
             f.write('\n\nClass: %s' % cl)
             f.write(f'\nGround truth: {totalPositives}, TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
