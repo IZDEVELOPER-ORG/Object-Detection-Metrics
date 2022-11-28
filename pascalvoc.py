@@ -431,7 +431,6 @@ with open((os.path.join(savePath, 'results.txt')), 'w') as f:
             f.write(f'\nGround truth: {totalPositives}, TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
             f.write('\nPrecision: %s' % prec)
             f.write('\nRecall: %s' % rec)
-            prc.append({cl: [{"precision": prec, "recall": rec}]})
 
             elements = [cl, totalPositives,
                         int(total_TP),
