@@ -52,7 +52,7 @@ import shutil
 import sys
 import pandas as pd
 import json
-from tqdm import tqdm
+
 import _init_paths
 from lib.BoundingBox import BoundingBox
 from lib.BoundingBoxes import BoundingBoxes
@@ -397,7 +397,7 @@ with open((os.path.join(savePath, 'results.txt')), 'w') as f:
             'Recall', 'Precision', 'AP', 'iou', 'mAP']
     data = []
 
-    for metricsPerClass in tqdm(detections):
+    for metricsPerClass in detections:
         # Get metric values per each class
         cl = metricsPerClass['class']
         ap = metricsPerClass['AP']
