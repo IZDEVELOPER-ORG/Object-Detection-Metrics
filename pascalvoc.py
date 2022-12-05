@@ -51,6 +51,11 @@ import os
 import shutil
 import sys
 import pandas as pd
+from pandas.plotting import table
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import matplotlib.colors as mcolors
 import json
 
 import _init_paths
@@ -458,5 +463,70 @@ for i in range(len(data)):
 
 df = pd.DataFrame([sublist[:10] for sublist in data], columns=columns)
 df = df.drop_duplicates(subset="Class")
+
+cols = ["Recall", "Precision", "AP", "iou", "mAP"]
+
+for col in cols:
+    df[col] = df[col].map('{:,.2f}'.format)
+
 df.to_csv(f'{savePath}/results.csv', encoding='utf-8', index=False)
-print(df)
+
+# Draw results.png
+plt.close()
+
+rpa_df = df[["Class", "Recall", "Precision", "AP"]].set_index("Class").astype(float)
+tfpn_df = df[["Class", "GT", "TP", "FP", "FN"]].set_index("Class").astype(int)
+map_iou_df = df[["iou", "mAP"]].astype(float)
+
+rpa_vals = np.around(rpa_df.values,2)
+map_iou_vals = np.around(map_iou_df.iloc[:1].values,2)
+
+cl_outcomes = {'white':'#FFFFFF',
+               'gray': '#AAA9AD',
+               'black':'#313639',
+               'purple':'#AD688E',
+               'orange':'#D18F77',
+               'yellow':'#E8E190',
+               'ltgreen':'#CCD9C7',
+               'dkgreen':'#96ABA0',
+               }
+
+figure = plt.figure(figsize=(9, 6), facecolor='w', edgecolor='k')
+spec = gridspec.GridSpec(ncols=2, nrows=2, figure=figure)
+axis1 = figure.add_subplot(spec[0, 0])
+axis1.set(frame_on=False)
+axis1.axis('off')
+
+axis2 = figure.add_subplot(spec[0, 1])
+axis2.set(frame_on=False)
+axis2.axis('off')
+
+axis3 = figure.add_subplot(spec[1, 0])
+axis3.set(frame_on=False)
+axis3.axis('off')
+
+tbl1 = table(axis1, rpa_df, 
+              colWidths = [0.25]*len(rpa_df.columns),
+              cellColours=plt.cm.RdYlGn(rpa_vals),
+              rowColours=np.full(len(rpa_df.index), cl_outcomes['ltgreen']),
+              colColours=np.full(len(rpa_df.columns), cl_outcomes['ltgreen']),
+              loc = 'best', edges = 'closed', cellLoc = 'center'
+              ).auto_set_column_width(col=list(range(len(rpa_df.columns))))
+
+tbl2 = table(axis2, tfpn_df, 
+              colWidths = [0.25]*len(tfpn_df.columns),
+              rowColours=np.full(len(tfpn_df.index), cl_outcomes['ltgreen']),
+              colColours=np.full(len(tfpn_df.columns), cl_outcomes['ltgreen']),
+              loc = 'best', edges = 'closed', cellLoc = 'center'
+              ).auto_set_column_width(col=list(range(len(tfpn_df.columns))))
+
+tbl3 = table(axis3, map_iou_df.iloc[:1], 
+              colWidths = [0.25]*len(map_iou_df.columns),
+              cellColours=plt.cm.RdYlGn(map_iou_vals),
+              rowColours=np.full(len(map_iou_df.index), cl_outcomes['ltgreen']),
+              colColours=np.full(len(map_iou_df.columns), cl_outcomes['ltgreen']),
+              loc = 'center', edges = 'closed', cellLoc = 'center'
+              ).auto_set_column_width(col=list(range(len(map_iou_df.columns))))
+
+if savePath is not None:
+    plt.savefig(os.path.join(savePath, 'results.png'), dpi=100)
