@@ -434,7 +434,7 @@ with open((os.path.join(savePath, 'results.txt')), 'w') as f:
                     json.dump({cl: [{"precision": p, "recall": r} for p, r in zip(prec, rec)]}, j, indent=4)
                 else:
                     json.dump({cl: [{"precision": "0.00", "recall": "0.00"}]}, j, indent=4)
-
+            
             f.write('\n\nClass: %s' % cl)
             f.write(f'\nGround truth: {totalPositives}, TP: {int(total_TP)}, FP: {int(total_FP)}, FN: {int(totalPositives - total_TP)}, Recall: {rec_percent:.2f}, Precision: {prec_percent:.2f}, AP: {ap_str}')
             f.write('\nPrecision: %s' % prec)
@@ -451,7 +451,7 @@ with open((os.path.join(savePath, 'results.txt')), 'w') as f:
 
         data.append(elements)
 
-
+# Make results.csv
 mAP = acc_AP / validClasses
 mAP_str = "{0:.2f}%".format(mAP * 100)
 # print(f'Total number of classes: {sum_of_classes}')
@@ -471,15 +471,13 @@ for col in cols:
 
 df.to_csv(f'{savePath}/results.csv', encoding='utf-8', index=False)
 
-# Draw results.png
+# Make results_rpa.png and results_tfpn.png
 plt.close()
 
 rpa_df = df[["Class", "Recall", "Precision", "AP"]].set_index("Class").astype(float)
 tfpn_df = df[["Class", "GT", "TP", "FP", "FN"]].set_index("Class").astype(int)
-map_iou_df = df[["iou", "mAP"]].astype(float)
 
 rpa_vals = np.around(rpa_df.values,2)
-map_iou_vals = np.around(map_iou_df.iloc[:1].values,2)
 
 cl_outcomes = {'white':'#FFFFFF',
                'gray': '#AAA9AD',
@@ -491,21 +489,11 @@ cl_outcomes = {'white':'#FFFFFF',
                'dkgreen':'#96ABA0',
                }
 
-figure = plt.figure(figsize=(9, 6), facecolor='w', edgecolor='k')
-spec = gridspec.GridSpec(ncols=2, nrows=2, figure=figure)
-axis1 = figure.add_subplot(spec[0, 0])
-axis1.set(frame_on=False)
-axis1.axis('off')
+fig_1, axis_1 = plt.subplots(figsize=(4,4))
+axis_1.set(frame_on=False)
+axis_1.axis('off')
 
-axis2 = figure.add_subplot(spec[0, 1])
-axis2.set(frame_on=False)
-axis2.axis('off')
-
-axis3 = figure.add_subplot(spec[1, 0])
-axis3.set(frame_on=False)
-axis3.axis('off')
-
-tbl1 = table(axis1, rpa_df, 
+table(axis_1, rpa_df, 
               colWidths = [0.25]*len(rpa_df.columns),
               cellColours=plt.cm.RdYlGn(rpa_vals),
               rowColours=np.full(len(rpa_df.index), cl_outcomes['ltgreen']),
@@ -513,20 +501,26 @@ tbl1 = table(axis1, rpa_df,
               loc = 'best', edges = 'closed', cellLoc = 'center'
               ).auto_set_column_width(col=list(range(len(rpa_df.columns))))
 
-tbl2 = table(axis2, tfpn_df, 
+if savePath is not None:
+    plt.savefig(os.path.join(savePath, 'results_rpa.png'), dpi=100)
+    plt.close()
+
+fig_2, axis_2 = plt.subplots(figsize=(4,4))
+axis_2.set(frame_on=False)
+axis_2.axis('off')
+
+table(axis_2, tfpn_df, 
               colWidths = [0.25]*len(tfpn_df.columns),
               rowColours=np.full(len(tfpn_df.index), cl_outcomes['ltgreen']),
               colColours=np.full(len(tfpn_df.columns), cl_outcomes['ltgreen']),
               loc = 'best', edges = 'closed', cellLoc = 'center'
               ).auto_set_column_width(col=list(range(len(tfpn_df.columns))))
 
-tbl3 = table(axis3, map_iou_df.iloc[:1], 
-              colWidths = [0.25]*len(map_iou_df.columns),
-              cellColours=plt.cm.RdYlGn(map_iou_vals),
-              rowColours=np.full(len(map_iou_df.index), cl_outcomes['ltgreen']),
-              colColours=np.full(len(map_iou_df.columns), cl_outcomes['ltgreen']),
-              loc = 'center', edges = 'closed', cellLoc = 'center'
-              ).auto_set_column_width(col=list(range(len(map_iou_df.columns))))
-
 if savePath is not None:
-    plt.savefig(os.path.join(savePath, 'results.png'), dpi=100)
+    plt.savefig(os.path.join(savePath, 'results_tfpn.png'), dpi=100)
+    plt.close()
+
+# Make evaluate.json
+evaluate_json = os.path.join(savePath, "evaluate.json")
+with open(evaluate_json, "w") as j:
+    json.dump({"iou": iouThreshold, "mAP": mAP, "precison_recall": rpa_df.to_dict('dict')}, j, indent=4)
