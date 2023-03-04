@@ -489,7 +489,7 @@ cl_outcomes = {'white':'#FFFFFF',
                'dkgreen':'#96ABA0',
                }
 
-fig_1, axis_1 = plt.subplots(figsize=(4,4))
+fig_1, axis_1 = plt.subplots(figsize=(5,5))
 axis_1.set(frame_on=False)
 axis_1.axis('off')
 
@@ -505,7 +505,7 @@ if savePath is not None:
     plt.savefig(os.path.join(savePath, 'results_rpa.png'), dpi=100)
     plt.close()
 
-fig_2, axis_2 = plt.subplots(figsize=(4,4))
+fig_2, axis_2 = plt.subplots(figsize=(5,5))
 axis_2.set(frame_on=False)
 axis_2.axis('off')
 
