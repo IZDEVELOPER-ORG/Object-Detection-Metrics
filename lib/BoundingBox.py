@@ -13,7 +13,8 @@ class BoundingBox:
                  imgSize=None,
                  bbType=BBType.GroundTruth,
                  classConfidence=None,
-                 format=BBFormat.XYWH):
+                 format=BBFormat.XYWH,
+                 imageArea=None):
         """Constructor.
         Args:
             imageName: String representing the image name.
@@ -36,6 +37,7 @@ class BoundingBox:
             BBFormat.XYX2Y2: <left> <top> <right> <bottom>.
         """
         self._imageName = imageName
+        self._imageArea = imageArea
         self._typeCoordinates = typeCoordinates
         if typeCoordinates == CoordinatesType.Relative and imgSize is None:
             raise IOError(
@@ -106,6 +108,9 @@ class BoundingBox:
 
     def getImageName(self):
         return self._imageName
+    
+    def getImageArea(self):
+        return self._imageArea
 
     def getConfidence(self):
         return self._classConfidence
@@ -157,5 +162,7 @@ class BoundingBox:
                                      imgSize=boundingBox.getImageSize(),
                                      bbType=boundingBox.getBBType(),
                                      classConfidence=boundingBox.getConfidence(),
-                                     format=BBFormat.XYWH)
+                                     format=BBFormat.XYWH,
+                                     imageArea=boundingBox.getImageArea()
+                                     )
         return newBoundingBox

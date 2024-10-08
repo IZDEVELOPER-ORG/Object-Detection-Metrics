@@ -5,7 +5,7 @@
 # Developed by: Rafael Padilla (rafael.padilla@smt.ufrj.br)                               #
 #        SMT - Signal Multimedia and Telecommunications Lab                               #
 #        COPPE - Universidade Federal do Rio de Janeiro                                   #
-#        Last modification: Oct 9th 2018                                                 #
+#        Last modification: Oct 9th 2018                                                  #
 ###########################################################################################
 
 import os
@@ -50,31 +50,37 @@ class Evaluator:
             dict['total FP']: total number of False Positive detections;
         """
         ret = []  # list containing metrics (precision, recall, average precision) of each class
-        # List with all ground truths (Ex: [imageName,class,confidence=1, (bb coordinates XYX2Y2)])
+        # List with all ground truths (Ex: [imageName,imageArea,class,confidence=1, (bb coordinates XYX2Y2),bb_area])
         groundTruths = []
-        # List with all detections (Ex: [imageName,class,confidence,(bb coordinates XYX2Y2)])
+        # List with all detections (Ex: [imageName,imageArea,class,confidence,(bb coordinates XYX2Y2),bb_area])
         detections = []
         # Get all classes
         classes = []
         # Loop through all bounding boxes and separate them into GTs and detections
         for bb in boundingboxes.getBoundingBoxes():
             # [imageName, class, confidence, (bb coordinates XYX2Y2)]
+            bb_area = self.calculate_area(bb.getAbsoluteBoundingBox(BBFormat.XYX2Y2))
+            bb_size = self.filter_by_size(bb_area, bb.getImageArea())
+
             if bb.getBBType() == BBType.GroundTruth:
                 groundTruths.append([
                     bb.getImageName(),
                     bb.getClassId(), 1,
-                    bb.getAbsoluteBoundingBox(BBFormat.XYX2Y2)
+                    bb.getAbsoluteBoundingBox(BBFormat.XYX2Y2),
+                    bb_size
                 ])
             else:
                 detections.append([
                     bb.getImageName(),
                     bb.getClassId(),
                     bb.getConfidence(),
-                    bb.getAbsoluteBoundingBox(BBFormat.XYX2Y2)
+                    bb.getAbsoluteBoundingBox(BBFormat.XYX2Y2),
+                    bb_size
                 ])
             # get class
             if bb.getClassId() not in classes:
                 classes.append(bb.getClassId())
+
         classes = sorted(classes)
         # Precision x Recall is obtained individually by each class
         # Loop through by classes
@@ -115,14 +121,11 @@ class Evaluator:
                     if det[dects[d][0]][jmax] == 0:
                         TP[d] = 1  # count as true positive
                         det[dects[d][0]][jmax] = 1  # flag as already 'seen'
-                        # print("TP")
                     else:
                         FP[d] = 1  # count as false positive
-                        # print("FP")
                 # - A detected "cat" is overlaped with a GT "cat" with IOU >= IOUThreshold.
                 else:
                     FP[d] = 1  # count as false positive
-                    # print("FP")
             # compute precision, recall and average precision
             acc_FP = np.cumsum(FP)
             acc_TP = np.cumsum(TP)
@@ -133,12 +136,20 @@ class Evaluator:
                 [ap, mpre, mrec, ii] = Evaluator.CalculateAveragePrecision(rec, prec)
             else:
                 [ap, mpre, mrec, _] = Evaluator.ElevenPointInterpolatedAP(rec, prec)
-            # add class result in the dictionary to be returned
+
+            # Filter by size and calculate AP for each size category
+            ap_s = self.calculate_ap_by_size('small', dects, gts, IOUThreshold, method)
+            ap_m = self.calculate_ap_by_size('medium', dects, gts, IOUThreshold, method)
+            ap_l = self.calculate_ap_by_size('large', dects, gts, IOUThreshold, method)
+
             r = {
                 'class': c,
                 'precision': prec,
                 'recall': rec,
                 'AP': ap,
+                'AP-S': ap_s,
+                'AP-M': ap_m,
+                'AP-L': ap_l,
                 'interpolated precision': mpre,
                 'interpolated recall': mrec,
                 'total positives': npos,
@@ -146,7 +157,61 @@ class Evaluator:
                 'total FP': np.sum(FP)
             }
             ret.append(r)
+
         return ret
+    
+
+    def calculate_area(self, bbox):
+        x1, y1, x2, y2 = bbox
+        return (x2 - x1) * (y2 - y1)
+
+
+    def filter_by_size(self, bb_area, image_area):
+        if image_area != 0:
+            if bb_area < (image_area / 4):
+                return 'small'
+            elif (image_area/4) <= bb_area < (image_area/2):
+                return 'medium'
+            elif bb_area >= (image_area/2):
+                return 'large'
+        else:
+            return 'no_image'
+
+
+    def calculate_ap_by_size(self, size, dects, gts, IOUThreshold, method):
+        filtered_dects = [d for d in dects if d[4] == size]
+        filtered_gts = {k: [g for g in gts[k] if g[4] == size] for k in gts if any(g[4] == size for g in gts[k])}
+        npos = sum([len(filtered_gts[k]) for k in filtered_gts])
+
+        if len(filtered_dects) == 0 or npos == 0:
+            return 0  # If no detections or ground truths of this size
+
+        TP, FP = np.zeros(len(filtered_dects)), np.zeros(len(filtered_dects))
+        det = {key: np.zeros(len(filtered_gts[key])) for key in filtered_gts}
+        
+        for d in range(len(filtered_dects)):
+            gt = filtered_gts[filtered_dects[d][0]] if filtered_dects[d][0] in filtered_gts else []
+            iouMax, jmax = sys.float_info.min, -1
+            for j in range(len(gt)):
+                iou = Evaluator.iou(filtered_dects[d][3], gt[j][3])
+                if iou > iouMax:
+                    iouMax, jmax = iou, j
+            if iouMax >= IOUThreshold and det[filtered_dects[d][0]][jmax] == 0:
+                TP[d] = 1
+                det[filtered_dects[d][0]][jmax] = 1
+            else:
+                FP[d] = 1
+
+        acc_FP, acc_TP = np.cumsum(FP), np.cumsum(TP)
+        rec, prec = acc_TP / npos, np.divide(acc_TP, (acc_FP + acc_TP))
+        
+        if method == MethodAveragePrecision.EveryPointInterpolation:
+            ap, _, _, _ = Evaluator.CalculateAveragePrecision(rec, prec)
+        else:
+            ap, _, _, _ = Evaluator.ElevenPointInterpolatedAP(rec, prec)
+            
+        return ap
+
 
     def PlotPrecisionRecallCurve(self,
                                  boundingBoxes,
@@ -414,7 +479,7 @@ class Evaluator:
         xB = min(boxA[2], boxB[2])
         yB = min(boxA[3], boxB[3])
         # intersection area
-        return (xB - xA + 1) * (yB - yA + 1)
+        return max(0, xB - xA + 1) * max(0, yB - yA + 1)
 
     @staticmethod
     def _getUnionAreas(boxA, boxB, interArea=None):
