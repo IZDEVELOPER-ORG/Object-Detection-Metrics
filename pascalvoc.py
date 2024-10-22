@@ -53,6 +53,7 @@ import sys
 import cv2
 import pandas as pd
 from pandas.plotting import table
+from pathlib import Path
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -138,7 +139,7 @@ def getBoundingBoxes(directory,
                      coordType,
                      allBoundingBoxes=None,
                      allClasses=None,
-                     img_dir=None,
+                     img_source=None,
                      imgSize=(0, 0)):
     """Read txt files containing bounding boxes (ground truth and detections)."""
     if allBoundingBoxes is None:
@@ -149,6 +150,9 @@ def getBoundingBoxes(directory,
     os.chdir(directory)
     files = glob.glob("*.txt")
     files.sort()
+    image_dict = {}
+    dir_flag = True
+
     # Read GT detections from txt file
     # Each line of the files in the groundtruths folder represents a ground truth bounding box
     # (bounding boxes that a detector should detect)
@@ -156,13 +160,29 @@ def getBoundingBoxes(directory,
     # Class_id represents the class of the bounding box
     # x, y represents the most top-left coordinates of the bounding box
     # x2, y2 represents the most bottom-right coordinates of the bounding box
+    img_source = Path(img_source)
+    if img_source.is_file():
+        with img_source.open("r") as file:
+            image_dict = {Path(line.strip()).parents[0].name + "_" + Path(line.strip()).stem: line.strip() for line in file}
+        dir_flag = False
+
+    elif img_source.is_dir():
+        dir_flag = True
+
     for f in tqdm(files):
         nameOfImage = f.replace(".txt", "")
-        if (img_dir != "") and (img_dir != None):
-            img_path = f"{img_dir}/{nameOfImage}.jpg"
-            image = cv2.imread(str(img_path))
-            img_h, img_w = image.shape[:2]
-            img_area = img_h * img_w
+        
+        if (img_source != "") and (img_source != None):
+            if dir_flag:
+                img_path = img_source / f"{nameOfImage}.jpg"
+                image = cv2.imread(str(img_path))
+                img_h, img_w = image.shape[:2]
+                img_area = img_h * img_w
+            else:
+                img_path = image_dict.get(nameOfImage)
+                image = cv2.imread(str(img_path))
+                img_h, img_w = image.shape[:2]
+                img_area = img_h * img_w
         else:
             img_path = ""
             img_h, img_w = 0, 0
@@ -293,8 +313,8 @@ def main():
                         metavar='',
                         help='folder where the plots are saved')
     parser.add_argument('-img',
-                        '--imgfolder',
-                        dest='imgFolder',
+                        '--imgsource',
+                        dest='imgSource',
                         metavar='',
                         help='folder containing your images')
     parser.add_argument('-np',
@@ -350,10 +370,10 @@ def main():
         savePath = os.path.join(currentPath, 'results')
     
     # Image folder
-    if args.imgFolder:
-        imgFolder = args.imgFolder
+    if args.imgSource:
+        imgSource = args.imgSource
     else:
-        imgFolder = ""
+        imgSource = ""
 
     # If error, show error messages
     if len(errors) != 0:
@@ -385,7 +405,7 @@ def main():
                                                     gtFormat,
                                                     gtCoordType,
                                                     imgSize=imgSize,
-                                                    img_dir=imgFolder
+                                                    img_source=imgSource
                                                     )
     # Get detected boxes
     allBoundingBoxes, allClasses = getBoundingBoxes(detFolder,
@@ -395,7 +415,7 @@ def main():
                                                     allBoundingBoxes,
                                                     allClasses,
                                                     imgSize=imgSize,
-                                                    img_dir=imgFolder
+                                                    img_source=imgSource
                                                     )
     allClasses.sort()
 
